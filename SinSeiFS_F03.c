@@ -31,6 +31,15 @@ char* atBash_cipher(char* string){
     return ret;
 }
 
+void writeLog(char* old, char *new){
+    FILE* file = fopen("encode.log","a");
+
+    char str[1000];
+    sprintf(str,"%s --> %s",old,new);
+    fprintf(file,"%s\n",str);
+    fclose(file);
+}
+
 char* check_Path(char* path){
     char fpath[1000];
     memset(fpath,0,sizeof(fpath));
@@ -241,6 +250,7 @@ static int xmp_mkdir(const char *path, mode_t mode){
     if(strstr(slash,"/AtoZ_")){
         char temp[1000];
         sprintf(temp,"%s%s",dirpath,path);
+        writeLog("NONE",temp);
     }
 
     int res;
@@ -256,7 +266,15 @@ static int xmp_rename(const char *from, const char *to)
 {
     char ffrom[1000];
     char fto[1000];
+    char* slash = strchr(to,'/');
+    if(strstr(slash,"/AtoZ_")){
+        char temp1[1000];
+        char temp2[1000];
 
+        sprintf(temp1,"%s%s",dirpath,from);
+        sprintf(temp2,"%s%s",dirpath,to);
+        writeLog(t1,t2);
+    }
 
     strcpy(ffrom,check_Path(from));
     strcpy(fto,check_Path(to));
