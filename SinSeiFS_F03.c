@@ -8,30 +8,129 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <string.h>
+#include <stdbool.h>
+bool isAZ;
+static const char *dirpath = "/home/zaki/Downloads";
 
-static  const  char *dirpath = "/home/zaki/Downloads";
 
 char* atBash_cipher(char* string){
     char res[strlen(string) + 1];
 
-    for(int i = 0; i < strlen(string), i++){
-        char ch = string[i];
-        if(ch >= 'A' && ch <= 'Z'){
-            ch = 'A' + 'Z' - ch;
+    strcpy(res,string);
+    
+    for(int i = 0; i < strlen(res); i++){
+        if(res[i] >= 'A' && res[i] <= 'Z'){
+            res[i] = 'A' + 'Z' - res[i];
         }
-        else if(ch >= 'a' && ch <= 'z'){
-            ch = 'a' + 'z' - ch;
+        else if(res[i] >= 'a' && res[i] <= 'z'){
+            res[i] = 'a' + 'z' - res[i];
         }
 
-        strcat(res,ch);
     }
+
+    return res;
 }
+
+char* check_Path(char* path){
+    char fpath[1000];
+    memset(fpath,0,sizeof(fpath));
+    bool isAZ = false;
+    char *ret;
+
+    if(strcmp(path, "/") != 0){
+        ret = strstr(path,"/AtoZ_");
+        if(ret){
+            isAZ = true;
+            ret++;
+        }
+    }
+
+    if(strcmp(path,"/") == 0){
+        path = dirpath;
+        sprintf(fpath,"%s",path);
+    }
+    else if(isAZ){
+        char filePath[1000];
+        memset(filePath,0,sizeof(filePath));
+        strncpy(filePath,path,strlen(path) - strlen(ret));
+
+        char temp[1000];
+        char temp2[1000];
+        char *token;
+        char *savePtr;
+
+        strcpy(temp,ret);
+        token  = strtok_r(temp,"/",savePtr);
+
+        int i = 0;
+        while(token){
+            memset(temp2,0,sizeof(temp2));
+            if(i == 0){
+                strcat(filePath,token);
+                i++;
+                continue;
+            }
+
+            char checkType[1000];
+            strcpy(checkType,filePath);
+            strcat(checkType,"/");
+            strcat(filePath,"/");
+            strcat(checkType,token);
+
+            if(strlen(checkType) == strlen(path)){
+                char folderPath[1024];
+                sprintf(folderPath,"%s%s%s",dirpath,filePath,token);
+
+                DIR *dp = opendir(folderPath);
+                if(!dp){
+                    char* dot;
+                    dot = strchr(token,'.');
+
+                    char fileName[1024];
+                    if(dot){
+                        strncpy(fileName,token,strlen(token) - strlen(dot));
+                        strcpy(fileName,atBash_cipher(fileName));
+                        strcat(fileName,dot);
+                    }
+                    else{
+                        strcpy(fileName,token);
+                        strcpy(fileName,atBash_cipher(fileName));
+                    }
+                    strcat(filePath,fileName);
+                }
+                else{
+                    char folderName[1024];
+                    strcpy(folderName, token);
+                    strcpy(folderName,atBash_cipher(folderName));
+                    strcat(filePath,folderName);
+                }
+            }
+            else{
+                char folderName[1024];
+                strcpy(folderName, token);
+                strcpy(folderName,atBash_cipher(folderName));
+                strcat(filePath,folderName);
+            }
+
+            token = strtok_r(NULL,"/",savePtr);
+            
+        }
+        sprintf(fpath,"%s%s",dirpath,filePath);
+    }
+    else{
+        sprintf(fpath,"%s%s",dirpath,path);
+    }
+
+    return fpath;
+}
+
+
 
 static  int  xmp_getattr(const char *path, struct stat *stbuf)
 {
     int res;
     char fpath[1000];
-
+    strcpy(fpath,check_Path(path));
     sprintf(fpath,"%s%s",dirpath,path);
 
     res = lstat(fpath, stbuf);
@@ -46,12 +145,8 @@ static  int  xmp_getattr(const char *path, struct stat *stbuf)
 static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
     char fpath[1000];
-
-    if(strcmp(path,"/") == 0)
-    {
-        path=dirpath;
-        sprintf(fpath,"%s",path);
-    } else sprintf(fpath, "%s%s",dirpath,path);
+    isAZ = false;
+    strcpy(fpath,check_Path(path));
 
     int res = 0;
 
@@ -71,9 +166,43 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 
         st.st_ino = de->d_ino;
         st.st_mode = de->d_type << 12;
-        res = (filler(buf, de->d_name, &st, 0));
 
-        if(res!=0) break;
+        if(strcmp(de->d_name,".") == 0 || strcmp(de->d_name,"..") == 0){
+            res = filler(buf,de->d_name,&st,0);
+        }
+        else if(isAZ){
+            if(de->d_type & DT_DIR){
+                char temp[1000];
+                strcpy(temp,de->d_name);
+                strcpy(temp,atBash_cipher(temp));
+                res = filler(buf,temp,&st,0);
+            }
+            else{
+                char *dot;
+                dot = strchr(de->d_name,'.');
+
+                char fileName[1024];
+                if(dot){
+                    strncpy(fileName,de->d_name,strlen(de->d_name) - strlen(dot));
+                    strcpy(fileName,atBash_cipher(fileName));
+                    strcat(fileName,dot);
+                }   
+                else{
+                    strcpy(fileName,de->d_name);
+                    strcpy(fileName,atBash_cipher(fileName));
+                }
+
+                res = filler(buf,fileName,&st,0);
+            }
+        }
+        else{
+            res = filler(buf,de->d_name,&st,0);
+        }
+
+        if(res != 0){
+            break;
+        }
+
     }
 
     closedir(dp);
@@ -86,13 +215,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
     char fpath[1000];
-    if(strcmp(path,"/") == 0)
-    {
-        path=dirpath;
-
-        sprintf(fpath,"%s",path);
-    }
-    else sprintf(fpath, "%s%s",dirpath,path);
+    strcpy(fpath,check_Path(path));
 
     int res = 0;
     int fd = 0 ;
@@ -114,17 +237,14 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 static int xmp_mkdir(const char *path, mode_t mode){
     char fpath[1000];
-    
-    if(strcmp(path,"/") == 0)
-    {
-        path=dirpath;
-
-        sprintf(fpath,"%s",path);
+    char *slash = strchr(path,'/');
+    if(strstr(slash,"/AtoZ_")){
+        char temp[1000];
+        sprintf(temp,"%s%s",dirpath,path);
     }
-    else sprintf(fpath, "%s%s",dirpath,path);
 
     int res;
-
+    strcpy(fpath,check_Path(fpath));
 	res = mkdir(fpath, mode);
 	if (res == -1)
 		return -errno;
@@ -137,21 +257,9 @@ static int xmp_rename(const char *from, const char *to)
     char ffrom[1000];
     char fto[1000];
 
-    if(strcmp(from,"/") == 0)
-    {
-        from=dirpath;
 
-        sprintf(ffrom,"%s",from);
-    }
-    else sprintf(ffrom, "%s%s",dirpath,from);
-
-    if(strcmp(to,"/") == 0)
-    {
-        to=dirpath;
-
-        sprintf(fto,"%s",to);
-    }
-    else sprintf(fto, "%s%s",dirpath,to);
+    strcpy(ffrom,check_Path(from));
+    strcpy(fto,check_Path(to));
 
 	int res;
 
