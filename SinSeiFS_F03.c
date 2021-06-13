@@ -9,7 +9,7 @@
 #include <sys/time.h>
 #include <string.h>
 #include <stdbool.h>
-bool isAZ;
+bool isAZ = false;
 static const char *dirpath = "/home/zaki/Downloads";
 
 
@@ -27,14 +27,14 @@ char* atBash_cipher(char* string){
         }
 
     }
-
-    return res;
+    char* ret = res;
+    return ret;
 }
 
 char* check_Path(char* path){
     char fpath[1000];
     memset(fpath,0,sizeof(fpath));
-    bool isAZ = false;
+    isAZ = false;
     char *ret;
 
     if(strcmp(path, "/") != 0){
@@ -121,7 +121,8 @@ char* check_Path(char* path){
         sprintf(fpath,"%s%s",dirpath,path);
     }
 
-    return fpath;
+    char* ret_path = fpath;
+    return ret_path;
 }
 
 
@@ -131,7 +132,6 @@ static  int  xmp_getattr(const char *path, struct stat *stbuf)
     int res;
     char fpath[1000];
     strcpy(fpath,check_Path(path));
-    sprintf(fpath,"%s%s",dirpath,path);
 
     res = lstat(fpath, stbuf);
 
